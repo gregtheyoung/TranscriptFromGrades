@@ -18,6 +18,7 @@ namespace TranscriptFromGrades
     public partial class MainForm : Form
     {
         private string template;
+        private string fullName;
 
         public MainForm()
         {
@@ -58,11 +59,13 @@ namespace TranscriptFromGrades
             DataSet ds = GetDataSetFromExcelFile(excelFileName);
             template = GetTranscriptTemplate(templateFileName);
 
+            fullName = ds.Tables["Info"].Select("FirstColumn = 'Name'")[0][1].ToString();
+
             ReplaceStudentInfo(ds);
 
             ReplaceAcademicRecord(ds);
 
-            CreateTranscript();
+            CreateTranscript(Path.GetDirectoryName(excelFileName));
         }
 
         private void ReplaceAcademicRecord(DataSet ds)
@@ -276,9 +279,13 @@ namespace TranscriptFromGrades
             template = template.Replace(pattern, newString);
         }
 
-        private void CreateTranscript()
+        private void CreateTranscript(string defaultDirectory)
         {
-            File.WriteAllText("c:\\Temp\\TranscriptGenerator\\newfile.rtf", template);
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.InitialDirectory = defaultDirectory;
+            saveFileDialog.FileName = fullName + " - Transcript " + DateTime.Now.ToString("o").Remove(10) + ".rtf";
+            if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                File.WriteAllText(saveFileDialog.FileName, template);
         }
 
         private static DataSet GetDataSetFromExcelFile(string fileName)
