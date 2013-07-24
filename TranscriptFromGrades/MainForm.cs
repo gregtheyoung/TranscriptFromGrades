@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Configuration;
 using Excel;
+using Microsoft.Office.Interop.Word;
 
 namespace TranscriptFromGrades
 {
@@ -70,7 +71,7 @@ namespace TranscriptFromGrades
 
         private void ReplaceAcademicRecord(DataSet ds)
         {
-            DataTable gradesTable = ds.Tables["Grades"];
+            System.Data.DataTable gradesTable = ds.Tables["Grades"];
 
             DataView gradesView = gradesTable.AsDataView();
 
@@ -285,7 +286,22 @@ namespace TranscriptFromGrades
             saveFileDialog.InitialDirectory = defaultDirectory;
             saveFileDialog.FileName = fullName + " - Transcript " + DateTime.Now.ToString("o").Remove(10) + ".rtf";
             if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
                 File.WriteAllText(saveFileDialog.FileName, template);
+
+                Microsoft.Office.Interop.Word.Application word = new Microsoft.Office.Interop.Word.Application();
+                object oMissing = System.Reflection.Missing.Value;
+                Object rtfFileName = (Object)saveFileDialog.FileName;
+                Document doc = word.Documents.Open(ref rtfFileName);
+                doc.Activate();
+
+                object pdfFileName = saveFileDialog.FileName.Replace(".rtf", ".pdf");
+                object fileFormat = WdSaveFormat.wdFormatPDF;
+                doc.SaveAs2(ref pdfFileName, ref fileFormat);
+
+                object saveChanges = WdSaveOptions.wdDoNotSaveChanges;
+                ((_Document)doc).Close(ref saveChanges);
+            }
         }
 
         private static DataSet GetDataSetFromExcelFile(string fileName)
