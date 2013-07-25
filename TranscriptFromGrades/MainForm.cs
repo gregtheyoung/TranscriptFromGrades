@@ -101,6 +101,9 @@ namespace TranscriptFromGrades
             double totalCredits = 0.0;
             double totalPoints = 0.0;
 
+            bool hasCollege = false;
+            bool hasTransfer = false;
+
             // Iterate through the list of distinct years...
             int sectionNumber = 1;
             bool first = true;
@@ -147,7 +150,18 @@ namespace TranscriptFromGrades
                             if (first) patternPrefix += "first";
                             if (rows.Last() == row) patternPrefix += "last";
                             rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "subject]]", row["Subject"].ToString());
-                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "title]]", row["Title"].ToString());
+                            string title = row["Title"].ToString();
+                            if ((row["CollegeYN"].ToString().Length > 0) && (row["CollegeYN"].ToString().ToLower()[0] == 'y'))
+                            {
+                                title += @" \super[C]";
+                                hasCollege = true;
+                            }
+                            if ((row["TransferYN"].ToString().Length > 0) && (row["TransferYN"].ToString().ToLower()[0] == 'y'))
+                            {
+                                title += @" \super[T]";
+                                hasTransfer = true;
+                            }
+                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "title]]", title);
                             Double credit = new Double();
                             Double.TryParse(row["Credit"].ToString(), out credit);
                             rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "credit]]", credit.ToString("f1"));
@@ -212,6 +226,15 @@ namespace TranscriptFromGrades
                     rtfTemplateText = rtfTemplateText.Replace("[[total" + subjectCredits[key].matchString + "]]", "");
                 else
                     rtfTemplateText = rtfTemplateText.Replace("[[total" + subjectCredits[key].matchString + "]]", subjectCredits[key].totalCredits.ToString("f1"));
+            }
+
+            // Notes if needed
+            if (hasCollege || hasTransfer)
+            {
+                string notes = "";
+                if (hasCollege) notes += @"[C] - denotes course was taken through a college\par";
+                if (hasTransfer) notes += @"[T] - denotes course was transferred from another school";
+                rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, "[[notes]]", notes);
             }
 
             rtfTemplateText = rtfTemplateText.Replace("[[totalcredits]]", totalCredits.ToString("f1"));
@@ -373,6 +396,8 @@ namespace TranscriptFromGrades
             ds.Tables["Grades"].Columns[2].ColumnName = "Title";
             ds.Tables["Grades"].Columns[7].ColumnName = "Final";
             ds.Tables["Grades"].Columns[8].ColumnName = "Credit";
+            ds.Tables["Grades"].Columns[17].ColumnName = "CollegeYN";
+            ds.Tables["Grades"].Columns[18].ColumnName = "TransferYN";
             ds.Tables["Grades"].Rows[0].Delete();
             ds.AcceptChanges();
 
