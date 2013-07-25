@@ -18,7 +18,7 @@ namespace TranscriptFromGrades
 {
     public partial class MainForm : Form
     {
-        private string rftTemplateText;
+        private string rtfTemplateText;
         private string studentFullName;
 
         public MainForm()
@@ -56,7 +56,7 @@ namespace TranscriptFromGrades
         private void GenerateTranscript(string excelFileName, string rtfTemplateFileName)
         {
             DataSet ds = GetDataSetFromExcelFile(excelFileName);
-            rftTemplateText = GetTranscriptRTFTemplateText(rtfTemplateFileName);
+            rtfTemplateText = GetTranscriptRTFTemplateText(rtfTemplateFileName);
 
             // Get the name of the student for later use.
             studentFullName = ds.Tables["Info"].Select("FirstColumn = 'Name'")[0][1].ToString();
@@ -65,7 +65,20 @@ namespace TranscriptFromGrades
 
             ReplaceAcademicRecord(ds);
 
+            RemoveRemainingTags();
+
             CreateTranscript(Path.GetDirectoryName(excelFileName));
+        }
+
+        private void RemoveRemainingTags()
+        {
+            // Get rid of the rest of the tags that haven't been replaced - there isn't any data left to fill them.
+            while (rtfTemplateText.IndexOf("[[") >= 0)
+            {
+                int startLocation = rtfTemplateText.IndexOf("[[");
+                int endLocation = rtfTemplateText.IndexOf("]]");
+                rtfTemplateText = rtfTemplateText.Remove(startLocation, endLocation - startLocation + 2);
+            }
         }
 
         private void ReplaceAcademicRecord(DataSet ds)
@@ -85,7 +98,8 @@ namespace TranscriptFromGrades
             // the summed credits for the year, the summed credits for all years, and the tag to find in the RTF text
             // for the subject.
             Dictionary<string, SubjectCredit> subjectCredits = InitializeSubjectCredits();
-
+            double totalCredits = 0.0;
+            double totalPoints = 0.0;
 
             // Iterate through the list of distinct years...
             int sectionNumber = 1;
@@ -94,7 +108,7 @@ namespace TranscriptFromGrades
             {
                 if (!String.IsNullOrEmpty(year))
                 {
-                    rftTemplateText = rftTemplateText.Replace("[[year" + sectionNumber + "]]", year);
+                    rtfTemplateText = rtfTemplateText.Replace("[[year" + sectionNumber + "]]", year);
 
                     gradesView.RowFilter = "SchoolYear = '" + year + "'";
 
@@ -103,19 +117,19 @@ namespace TranscriptFromGrades
                     // Obtain the RTF string that represents one row. We will do this by going from 
                     // a known tag in row 2 to the same known tag in row 3, and grabbing all
                     // the text inbetween. Then we will either delete it or repeat it.
-                    int firstLocation = rftTemplateText.IndexOf("[[year" + sectionNumber + "subject]]");
-                    int secondLocation = rftTemplateText.IndexOf("[[year" + sectionNumber + "subject]]", firstLocation + 1);
-                    string clone = rftTemplateText.Substring(firstLocation, secondLocation - firstLocation);
+                    int firstLocation = rtfTemplateText.IndexOf("[[year" + sectionNumber + "subject]]");
+                    int secondLocation = rtfTemplateText.IndexOf("[[year" + sectionNumber + "subject]]", firstLocation + 1);
+                    string clone = rtfTemplateText.Substring(firstLocation, secondLocation - firstLocation);
 
                     // If we have less than four rows, then we need to remove a row from the RTF template
                     if (rows.Count() < 4)
-                        rftTemplateText = rftTemplateText.Remove(firstLocation, secondLocation - firstLocation);
+                        rtfTemplateText = rtfTemplateText.Remove(firstLocation, secondLocation - firstLocation);
                     else if (rows.Count() > 4)
                     {
                         // We need to add rows to the RTF template. We already have 4 in the template, so just
                         // need to add the difference.
                         for (int i = 0; i < rows.Count() - 4; i++)
-                            rftTemplateText = rftTemplateText.Insert(secondLocation, clone);
+                            rtfTemplateText = rtfTemplateText.Insert(secondLocation, clone);
                     }
 
                     double creditsThisYear = 0.0;
@@ -124,51 +138,67 @@ namespace TranscriptFromGrades
                     // Now we iterate through each course in this year...
                     foreach (DataRow row in rows)
                     {
-                        string patternPrefix = "[[year" + sectionNumber;
-                        if (first) patternPrefix += "first";
-                        if (rows.Last() == row) patternPrefix += "last";
-                        rftTemplateText = ReplaceFirstPatternInstanceWithString(rftTemplateText, patternPrefix + "subject]]", row["Subject"].ToString());
-                        rftTemplateText = ReplaceFirstPatternInstanceWithString(rftTemplateText, patternPrefix + "title]]", row["Title"].ToString());
-                        Double credit = new Double();
-                        Double.TryParse(row["Credit"].ToString(), out credit);
-                        rftTemplateText = ReplaceFirstPatternInstanceWithString(rftTemplateText, patternPrefix + "credit]]", credit.ToString("f1"));
-                        rftTemplateText = ReplaceFirstPatternInstanceWithString(rftTemplateText, patternPrefix + "grade]]", row["Final"].ToString());
-
-                        // Add up credits points for GPA computation.
-                        switch (row["Final"].ToString().ToUpper()[0])
+                        if ((row["Subject"].ToString().Length > 0) &&
+                            (row["Title"].ToString().Length > 0) &&
+                            (row["Final"].ToString().Length > 0) &&
+                            (row["Credit"].ToString().Length > 0))
                         {
-                            case 'A':
-                                pointsThisYear += 4.0 * credit;
-                                break;
-                            case 'B':
-                                pointsThisYear += 3.0 * credit;
-                                break;
-                            case 'C':
-                                pointsThisYear += 2.0 * credit;
-                                break;
+                            string patternPrefix = "[[year" + sectionNumber;
+                            if (first) patternPrefix += "first";
+                            if (rows.Last() == row) patternPrefix += "last";
+                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "subject]]", row["Subject"].ToString());
+                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "title]]", row["Title"].ToString());
+                            Double credit = new Double();
+                            Double.TryParse(row["Credit"].ToString(), out credit);
+                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "credit]]", credit.ToString("f1"));
+                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "grade]]", row["Final"].ToString());
+
+                            // Add up credits points for GPA computation.
+                            switch (row["Final"].ToString().ToUpper()[0])
+                            {
+                                case 'A':
+                                    pointsThisYear += 4.0 * credit;
+                                    break;
+                                case 'B':
+                                    pointsThisYear += 3.0 * credit;
+                                    break;
+                                case 'C':
+                                    pointsThisYear += 2.0 * credit;
+                                    break;
+                            }
+
+                            subjectCredits[row["Subject"].ToString()].creditsThisYear += credit;
+                            subjectCredits[row["Subject"].ToString()].totalCredits += credit;
+
+                            creditsThisYear += credit;
+                            totalCredits += credit;
+                            first = false;
                         }
-
-                        subjectCredits[row["Subject"].ToString()].creditsThisYear += credit;
-                        subjectCredits[row["Subject"].ToString()].totalCredits += credit;
-
-                        creditsThisYear += credit;
-                        first = false;
                     }
 
-                    rftTemplateText = ReplaceFirstPatternInstanceWithString(rftTemplateText, "[[year" + sectionNumber + "totalcredits]]", creditsThisYear.ToString("f1"));
-                    Double gpaThisYear = pointsThisYear / creditsThisYear;
-                    rftTemplateText = ReplaceFirstPatternInstanceWithString(rftTemplateText, "[[year" + sectionNumber + "gpa]]", gpaThisYear.ToString("f2"));
+                    if (creditsThisYear > 0)
+                    {
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, "[[year" + sectionNumber + "totalcredits]]", creditsThisYear.ToString("f1"));
+                        Double gpaThisYear = pointsThisYear / creditsThisYear;
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, "[[year" + sectionNumber + "gpa]]", gpaThisYear.ToString("f2"));
+                    }
+                    else
+                    {
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, "[[year" + sectionNumber + "totalcredits]]", "");
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, "[[year" + sectionNumber + "gpa]]", "");
+                    }
 
                     // Now replace the credit sums for each subject for this year...
                     foreach (string key in subjectCredits.Keys)
                     {
                         if (subjectCredits[key].creditsThisYear == 0.0)
-                            rftTemplateText = rftTemplateText.Replace("[[year" + sectionNumber + subjectCredits[key].matchString + "]]", "");
+                            rtfTemplateText = rtfTemplateText.Replace("[[year" + sectionNumber + subjectCredits[key].matchString + "]]", "");
                         else
-                            rftTemplateText = rftTemplateText.Replace("[[year" + sectionNumber + subjectCredits[key].matchString + "]]", subjectCredits[key].creditsThisYear.ToString("f1"));
+                            rtfTemplateText = rtfTemplateText.Replace("[[year" + sectionNumber + subjectCredits[key].matchString + "]]", subjectCredits[key].creditsThisYear.ToString("f1"));
                         subjectCredits[key].creditsThisYear = 0.0;
                     }
 
+                    totalPoints += pointsThisYear;
                     first = true;
                     sectionNumber++;
                 }
@@ -179,18 +209,15 @@ namespace TranscriptFromGrades
             foreach (string key in subjectCredits.Keys)
             {
                 if (subjectCredits[key].totalCredits == 0.0)
-                    rftTemplateText = rftTemplateText.Replace("[[total" + subjectCredits[key].matchString + "]]", "");
+                    rtfTemplateText = rtfTemplateText.Replace("[[total" + subjectCredits[key].matchString + "]]", "");
                 else
-                    rftTemplateText = rftTemplateText.Replace("[[total" + subjectCredits[key].matchString + "]]", subjectCredits[key].totalCredits.ToString("f1"));
+                    rtfTemplateText = rtfTemplateText.Replace("[[total" + subjectCredits[key].matchString + "]]", subjectCredits[key].totalCredits.ToString("f1"));
             }
 
-            // Get rid of the rest of the tags that haven't been replaced - there isn't any data left to fill them.
-            while (rftTemplateText.IndexOf("[[") >= 0)
-            {
-                int startLocation = rftTemplateText.IndexOf("[[");
-                int endLocation = rftTemplateText.IndexOf("]]");
-                rftTemplateText = rftTemplateText.Remove(startLocation, endLocation - startLocation + 2);
-            }
+            rtfTemplateText = rtfTemplateText.Replace("[[totalcredits]]", totalCredits.ToString("f1"));
+            double overallGPA = totalPoints / totalCredits;
+            rtfTemplateText = rtfTemplateText.Replace("[[overallgpa]]", overallGPA.ToString("f2"));
+
         }
 
         private static Dictionary<string, SubjectCredit> InitializeSubjectCredits()
@@ -256,22 +283,16 @@ namespace TranscriptFromGrades
             row = ds.Tables["Info"].Select("FirstColumn = 'Grad Date'")[0];
             SubstituteDate(row, @"[[graddate]]");
             if (row[1].ToString() != "")
-                rftTemplateText = rftTemplateText.Replace("[[diplomaearned]]", "Yes");
+                rtfTemplateText = rtfTemplateText.Replace("[[diplomaearned]]", "Yes");
             else
-                rftTemplateText = rftTemplateText.Replace("[[diplomaearned]]", "No");
-
-            row = ds.Tables["Info"].Select("FirstColumn = 'Credits'")[0];
-            SubstituteNumber(row, @"[[totalcredits]]", 1);
-
-            row = ds.Tables["Info"].Select("FirstColumn = 'GPA'")[0];
-            SubstituteNumber(row, @"[[overallgpa]]", 2);
+                rtfTemplateText = rtfTemplateText.Replace("[[diplomaearned]]", "No");
 
         }
 
         private void SubstituteSingleString(DataRow row, string pattern)
         {
             string newString = row[1].ToString();
-            rftTemplateText = rftTemplateText.Replace(pattern, newString);
+            rtfTemplateText = rtfTemplateText.Replace(pattern, newString);
         }
 
         private void SubstituteDate(DataRow row, string pattern)
@@ -284,7 +305,7 @@ namespace TranscriptFromGrades
             else
                 newString = "";
 
-            rftTemplateText = rftTemplateText.Replace(pattern, newString);
+            rtfTemplateText = rtfTemplateText.Replace(pattern, newString);
         }
 
         private void SubstituteNumber(DataRow row, string pattern, int numberOfDigitsAfterDecimalPoint)
@@ -297,7 +318,7 @@ namespace TranscriptFromGrades
             else
                 newString = "";
 
-            rftTemplateText = rftTemplateText.Replace(pattern, newString);
+            rtfTemplateText = rtfTemplateText.Replace(pattern, newString);
         }
 
         /// <summary>
@@ -314,7 +335,7 @@ namespace TranscriptFromGrades
             if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 // Pretty simple to write it out to RTF.
-                File.WriteAllText(saveFileDialog.FileName, rftTemplateText);
+                File.WriteAllText(saveFileDialog.FileName, rtfTemplateText);
 
                 CreatePDFFromRTF(saveFileDialog.FileName);
             }
