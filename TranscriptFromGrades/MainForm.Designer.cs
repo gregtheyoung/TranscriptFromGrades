@@ -34,7 +34,7 @@
             this.generateTranscriptButton = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
-            this.templateFileTextBox = new System.Windows.Forms.TextBox();
+            this.rtfTemplateFileTextBox = new System.Windows.Forms.TextBox();
             this.templateFileButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
@@ -92,12 +92,12 @@
             // 
             // templateFileTextBox
             // 
-            this.templateFileTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.rtfTemplateFileTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.templateFileTextBox.Location = new System.Drawing.Point(19, 115);
-            this.templateFileTextBox.Name = "templateFileTextBox";
-            this.templateFileTextBox.Size = new System.Drawing.Size(371, 20);
-            this.templateFileTextBox.TabIndex = 5;
+            this.rtfTemplateFileTextBox.Location = new System.Drawing.Point(19, 115);
+            this.rtfTemplateFileTextBox.Name = "templateFileTextBox";
+            this.rtfTemplateFileTextBox.Size = new System.Drawing.Size(371, 20);
+            this.rtfTemplateFileTextBox.TabIndex = 5;
             // 
             // templateFileButton
             // 
@@ -116,7 +116,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(438, 198);
             this.Controls.Add(this.templateFileButton);
-            this.Controls.Add(this.templateFileTextBox);
+            this.Controls.Add(this.rtfTemplateFileTextBox);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.generateTranscriptButton);
@@ -137,7 +137,7 @@
         private System.Windows.Forms.Button generateTranscriptButton;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.TextBox templateFileTextBox;
+        private System.Windows.Forms.TextBox rtfTemplateFileTextBox;
         private System.Windows.Forms.Button templateFileButton;
     }
 }
