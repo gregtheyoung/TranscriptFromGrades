@@ -85,6 +85,16 @@ namespace TranscriptFromGrades
         {
             // Get the one table from teh dataset we'll be using.
             System.Data.DataTable gradesTable = ds.Tables["Grades"];
+            // Get rid of rows that have blanks...
+            foreach (DataRow row in gradesTable.Rows)
+            {
+                if ((row["Subject"].ToString().Length == 0) ||
+                    (row["Title"].ToString().Length == 0) ||
+                    (row["Final"].ToString().Length == 0) ||
+                    (row["Credit"].ToString().Length == 0))
+                    row.Delete();
+            }
+            gradesTable.AcceptChanges();
 
             // Get a list of the school years to be used. Note that this should be from 1 to 4 rows,
             // of the format like "2012-2013".
@@ -117,6 +127,7 @@ namespace TranscriptFromGrades
 
                     var rows = gradesView.ToTable().AsEnumerable();
 
+
                     // Obtain the RTF string that represents one row. We will do this by going from 
                     // a known tag in row 2 to the same known tag in row 3, and grabbing all
                     // the text inbetween. Then we will either delete it or repeat it.
@@ -141,53 +152,47 @@ namespace TranscriptFromGrades
                     // Now we iterate through each course in this year...
                     foreach (DataRow row in rows)
                     {
-                        if ((row["Subject"].ToString().Length > 0) &&
-                            (row["Title"].ToString().Length > 0) &&
-                            (row["Final"].ToString().Length > 0) &&
-                            (row["Credit"].ToString().Length > 0))
+                        string patternPrefix = "[[year" + sectionNumber;
+                        if (first) patternPrefix += "first";
+                        if (rows.Last() == row) patternPrefix += "last";
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "subject]]", row["Subject"].ToString());
+                        string title = row["Title"].ToString();
+                        if ((row["CollegeYN"].ToString().Length > 0) && (row["CollegeYN"].ToString().ToLower()[0] == 'y'))
                         {
-                            string patternPrefix = "[[year" + sectionNumber;
-                            if (first) patternPrefix += "first";
-                            if (rows.Last() == row) patternPrefix += "last";
-                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "subject]]", row["Subject"].ToString());
-                            string title = row["Title"].ToString();
-                            if ((row["CollegeYN"].ToString().Length > 0) && (row["CollegeYN"].ToString().ToLower()[0] == 'y'))
-                            {
-                                title += @" \super[C]";
-                                hasCollege = true;
-                            }
-                            if ((row["TransferYN"].ToString().Length > 0) && (row["TransferYN"].ToString().ToLower()[0] == 'y'))
-                            {
-                                title += @" \super[T]";
-                                hasTransfer = true;
-                            }
-                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "title]]", title);
-                            Double credit = new Double();
-                            Double.TryParse(row["Credit"].ToString(), out credit);
-                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "credit]]", credit.ToString("f1"));
-                            rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "grade]]", row["Final"].ToString());
-
-                            // Add up credits points for GPA computation.
-                            switch (row["Final"].ToString().ToUpper()[0])
-                            {
-                                case 'A':
-                                    pointsThisYear += 4.0 * credit;
-                                    break;
-                                case 'B':
-                                    pointsThisYear += 3.0 * credit;
-                                    break;
-                                case 'C':
-                                    pointsThisYear += 2.0 * credit;
-                                    break;
-                            }
-
-                            subjectCredits[row["Subject"].ToString()].creditsThisYear += credit;
-                            subjectCredits[row["Subject"].ToString()].totalCredits += credit;
-
-                            creditsThisYear += credit;
-                            totalCredits += credit;
-                            first = false;
+                            title += @" \super[C]";
+                            hasCollege = true;
                         }
+                        if ((row["TransferYN"].ToString().Length > 0) && (row["TransferYN"].ToString().ToLower()[0] == 'y'))
+                        {
+                            title += @" \super[T]";
+                            hasTransfer = true;
+                        }
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "title]]", title);
+                        Double credit = new Double();
+                        Double.TryParse(row["Credit"].ToString(), out credit);
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "credit]]", credit.ToString("f1"));
+                        rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "grade]]", row["Final"].ToString());
+
+                        // Add up credits points for GPA computation.
+                        switch (row["Final"].ToString().ToUpper()[0])
+                        {
+                            case 'A':
+                                pointsThisYear += 4.0 * credit;
+                                break;
+                            case 'B':
+                                pointsThisYear += 3.0 * credit;
+                                break;
+                            case 'C':
+                                pointsThisYear += 2.0 * credit;
+                                break;
+                        }
+
+                        subjectCredits[row["Subject"].ToString()].creditsThisYear += credit;
+                        subjectCredits[row["Subject"].ToString()].totalCredits += credit;
+
+                        creditsThisYear += credit;
+                        totalCredits += credit;
+                        first = false;
                     }
 
                     if (creditsThisYear > 0)
