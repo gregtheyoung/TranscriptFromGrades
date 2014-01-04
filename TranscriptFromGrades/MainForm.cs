@@ -154,7 +154,7 @@ namespace TranscriptFromGrades
                     {
                         string patternPrefix = "[[year" + sectionNumber;
                         if (first) patternPrefix += "first";
-                        if (rows.Last() == row) patternPrefix += "last";
+                        else if (rows.Last() == row) patternPrefix += "last";
                         rtfTemplateText = ReplaceFirstPatternInstanceWithString(rtfTemplateText, patternPrefix + "subject]]", row["Subject"].ToString());
                         string title = row["Title"].ToString();
                         if ((row["CollegeYN"].ToString().Length > 0) && (row["CollegeYN"].ToString().ToLower()[0] == 'y'))
